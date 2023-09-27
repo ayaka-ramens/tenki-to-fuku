@@ -2,10 +2,8 @@
 // aws lambda update-function-code --function-name tenki-to-fuku --zip-file fileb://function.zip
 
 const line = require('@line/bot-sdk');
-const lineClient = new line.Client({
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
-});
+const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
+const lineClient = new line.Client({channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,});
 
 const AWS = require("aws-sdk");
 AWS.config.update({region: 'ap-northeast-1'});
@@ -64,15 +62,16 @@ async function getClothingRecommendation(todayTemperature) {
 }
 
 exports.handler = async (event) => {
-  console.log('=======event.bodyだよ========', event)
+  console.log('=======eventだよ========', event)
 
-  // const body = JSON.parse(event.body).events[0];
   // LINEからの接続であるか確認
-  // const signature = req.headers["x-line-signature"];
-  // const bool = line.validateSignature(req.body, channelSecret, signature);
-  // if (!bool) throw new Error("invalid signature");
+  const signature = event.headers["x-line-signature"];
+  const bool = line.validateSignature(event.body, LINE_CHANNEL_SECRET, signature);
+  if (!bool) throw new Error("invalid signature");
+
+  const body = JSON.parse(event.body).events[0];
 /*
-  const weather_api_params = await fetchCityLongitudeLatitude(body.message);
+  const weather_api_params = fetchCityLongitudeLatitude(body.message);
   const todayTemperature = fetchWeather(weather_api_params)
   const recommendation = getClothingRecommendation(todayTemperature)
 
@@ -82,14 +81,20 @@ exports.handler = async (event) => {
       text: `今日の気温は約${todayTemperature}℃です。${recommendation.clothing_recommendation.S}がおすすめです。詳細: ${recommendation.description.S}`
   };
 */
-const response = {
-                    "isBase64Encoded": false,
-                    "statusCode": 200,
-                    "headers": {
-                        "Content-Type": "application/json"
-                    },
-                    "body": "{\"message\": \"Hello, World!\"}"
-                  }
-  return response
-  // await lineClient.replyMessage(body.replyToken, response);
+
+  const response = {
+    type: "text",
+    text: "テストでーーーーーす"
+  };
+
+  await lineClient.replyMessage(body.replyToken, response);
+
+  return {
+    "isBase64Encoded": false,
+    "statusCode": 200,
+    "headers": {
+        "Content-Type": "application/json"
+    },
+    "body": "{\"message\": \"Hello, World!\"}"
+  }
 };
