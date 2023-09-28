@@ -24,7 +24,7 @@ async function fetchCityLongitudeLatitude(city_name) {
 
   try {
     const result = await dynamoDB.getItem(params).promise();
-    console.log('=======resultだよ========', result)
+    console.log('=======result=======', result)
     return result.Item.longitude_latitude.S;
   } catch (error) {
     console.error(`経度緯度の取得に失敗しました。city_name: ${city_name} をパラメーターとして使います`, error);
@@ -38,6 +38,7 @@ async function fetchWeather(weather_api_params) {
   // TODO: 3時間毎の気温を取得したい（リクエスト時刻から24時間後まで）
   try {
       const response = await axios.get(url);
+      console.log('=======response=======', response)
       return response.data.forecast.forecastday[0].day.avgtemp_c
   } catch (error) {
       console.error('Error fetching from API:', error);
@@ -63,8 +64,6 @@ async function getClothingRecommendation(todayTemperature) {
 }
 
 exports.handler = async (event) => {
-  console.log('=======eventだよ========', event)
-
   // LINEからの接続であるか確認
   const signature = event.headers["x-line-signature"];
   const bool = line.validateSignature(event.body, LINE_CHANNEL_SECRET, signature);
@@ -73,8 +72,8 @@ exports.handler = async (event) => {
   const body = JSON.parse(event.body).events[0];
 
   const weather_api_params = await fetchCityLongitudeLatitude(body.message.text);
+  const todayTemperature = await fetchWeather(weather_api_params)
 /*
-  const todayTemperature = fetchWeather(weather_api_params)
   const recommendation = getClothingRecommendation(todayTemperature)
 
   // LINE MessageAPI用のレスポンス
@@ -86,7 +85,7 @@ exports.handler = async (event) => {
 
   const response = {
     type: "text",
-    text: `経度緯度 ${weather_api_params}`
+    text: `経度緯度 ${weather_api_params},今日の気温は約${todayTemperature}度です。`
   };
 
   await lineClient.replyMessage(body.replyToken, response);
