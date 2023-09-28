@@ -47,20 +47,33 @@ async function fetchWeather(weather_api_params) {
 }
 
 async function getClothingRecommendation(todayTemperature) {
-    // 服装の目安となるテーブルから該当する服装を取得
-    const clothingParams = {
-      TableName: "tenki-to-fuku-clothing-recommendation",
-      FilterExpression: ":minTemp <= #temperature AND :maxTemp >= #temperature",
-      ExpressionAttributeNames: {
-          "#temperature": "min_temperature"
-      },
-      ExpressionAttributeValues: {
-          ":minTemp": { N: String(todayTemperature) },
-          ":maxTemp": { N: String(todayTemperature) }
-      }
+  // 服装の目安となるテーブルから該当する服装を取得
+  const clothingParams = {
+    TableName: "tenki-to-fuku-clothing-recommendation",
+    FilterExpression: "(attribute_not_exists(#max_temperature) OR :minTemp <= #max_temperature) AND (attribute_not_exists(#min_temperature) OR :maxTemp >= #min_temperature)",
+    ExpressionAttributeNames: {
+        "#min_temperature": "min_temperature",
+        "#max_temperature": "max_temperature"
+    },
+    ExpressionAttributeValues: {
+        ":minTemp": { N: String(todayTemperature) },
+        ":maxTemp": { N: String(todayTemperature) }
+    }
   };
-  const clothingData = await dynamoDB.scan(clothingParams).promise();
-  return clothingData.Items[0];
+
+  try {
+    const clothingData = await dynamoDB.scan(clothingParams).promise();
+    console.log('=======clothingData=======', clothingData);
+
+    if (clothingData.Items.length === 0) {
+      throw new Error("No matching clothing recommendation found.");
+    }
+
+    return clothingData.Items[0];
+  } catch (error) {
+    console.error(`服装マスターの取得に失敗しました。todayTemperature: ${todayTemperature}`, error);
+    throw error;
+  }
 }
 
 exports.handler = async (event) => {
@@ -73,19 +86,12 @@ exports.handler = async (event) => {
 
   const weather_api_params = await fetchCityLongitudeLatitude(body.message.text);
   const todayTemperature = await fetchWeather(weather_api_params)
-/*
-  const recommendation = getClothingRecommendation(todayTemperature)
+  const recommendation = await getClothingRecommendation(todayTemperature)
 
-  // LINE MessageAPI用のレスポンス
+  // LINE MessageAPIへレスポンス
   const response = {
       type: "text",
-      text: `今日の気温は約${todayTemperature}℃です。${recommendation.clothing_recommendation.S}がおすすめです。詳細: ${recommendation.description.S}`
-  };
-*/
-
-  const response = {
-    type: "text",
-    text: `経度緯度 ${weather_api_params},今日の気温は約${todayTemperature}度です。`
+      text: `今日の気温は約${todayTemperature}度です。${recommendation.clothing_recommendation.S}がおすすめです。詳細: ${recommendation.description.S}`
   };
 
   await lineClient.replyMessage(body.replyToken, response);
