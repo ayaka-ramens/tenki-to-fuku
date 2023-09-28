@@ -11,4 +11,4 @@
 - Amazon DynamoDB
 - Weather api
 
-![transition_diagram](/doc/transition_diagram.png)
+![transition_diagram](/doc/transition_diagram.jpg)

@@ -1,0 +1,19 @@
+{
+  "name": "tenki-to-fuku",
+  "version": "1.0.0",
+  "description": "天気情報から服装のアドバイスをするLINE Botです",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@line/bot-sdk": "^7.7.0",
+    "aws-sdk": "^2.1465.0",
+    "axios": "^1.5.1"
+  }
+}

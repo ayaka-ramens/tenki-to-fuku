@@ -1,0 +1,5 @@
+node_modules/
+function.zip
+nodejs.zip
+*.zip
+.DS_Store
