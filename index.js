@@ -24,6 +24,7 @@ async function fetchCityLongitudeLatitude(city_name) {
 
   try {
     const result = await dynamoDB.getItem(params).promise();
+    console.log('=======resultだよ========', result)
     return result.Item.longitude_latitude.S;
   } catch (error) {
     console.error(`経度緯度の取得に失敗しました。city_name: ${city_name} をパラメーターとして使います`, error);
@@ -70,8 +71,9 @@ exports.handler = async (event) => {
   if (!bool) throw new Error("invalid signature");
 
   const body = JSON.parse(event.body).events[0];
+
+  const weather_api_params = await fetchCityLongitudeLatitude(body.message.text);
 /*
-  const weather_api_params = fetchCityLongitudeLatitude(body.message);
   const todayTemperature = fetchWeather(weather_api_params)
   const recommendation = getClothingRecommendation(todayTemperature)
 
@@ -84,7 +86,7 @@ exports.handler = async (event) => {
 
   const response = {
     type: "text",
-    text: "テストでーーーーーす"
+    text: `経度緯度 ${weather_api_params}`
   };
 
   await lineClient.replyMessage(body.replyToken, response);
