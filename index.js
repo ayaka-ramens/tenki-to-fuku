@@ -41,7 +41,7 @@ async function fetchWeather(weather_api_params) {
       console.log('=======response=======', response)
       return response.data.forecast.forecastday[0].day.avgtemp_c
   } catch (error) {
-      console.error('Error fetching from API:', error);
+      console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
       throw error;
   }
 }
