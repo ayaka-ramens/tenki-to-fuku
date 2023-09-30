@@ -1,5 +1,7 @@
 // zip function.zip index.js
 // aws lambda update-function-code --function-name tenki-to-fuku --zip-file fileb://function.zip
+const axios = require("axios");
+const dayjs = require('dayjs');
 
 const line = require('@line/bot-sdk');
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
@@ -7,8 +9,6 @@ const lineClient = new line.Client({channelAccessToken: process.env.LINE_CHANNEL
 
 const AWS = require("aws-sdk");
 AWS.config.update({region: 'ap-northeast-1'});
-
-const axios = require("axios");
 
 const dynamoDB = new AWS.DynamoDB();
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
@@ -39,6 +39,23 @@ async function fetchWeather(weather_api_params) {
   try {
       const response = await axios.get(url);
       console.log('=======response=======', response)
+      const currentDate = dayjs();
+      // 現在の時刻から24時間後までの天気情報を返す
+      const dateOfEndpoint = date.add(24, 'hour').startOf('hour');
+
+      // レスポンスのイメージ
+      // dateOfEndpointのtimeepocで計算して3時間毎に取得するのがいい？(要確認)
+      // response = {
+      //   currentDate: currentDate,
+      //   forecasts: [
+      //     {
+      //       time_epoc: 1696060800,
+      //       time: "2023-09-30 17:00",
+      //       temp_c: 26.6// WIP
+      //     },
+          //{}, ....
+        // ]
+      }
       return response.data.forecast.forecastday[0].day.avgtemp_c
   } catch (error) {
       console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
