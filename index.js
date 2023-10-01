@@ -37,33 +37,40 @@ async function fetchWeather(weather_api_params) {
   // とりあえず平均気温を取得
   // TODO: 3時間毎の気温を取得したい（リクエスト時刻から24時間後まで）
   try {
-      const response = await axios.get(url);
-      console.log('=======response=======', response)
-      const currentDate = dayjs();
-      // 現在の時刻から24時間後までの天気情報を返す
-      const dateOfEndpoint = date.add(24, 'hour').startOf('hour');
+    const response = await axios.get(url);
+    console.log('=======response=======', response)
+    const currentDate = dayjs();
+    // 現在の時刻から24時間後までの天気情報を返す
+    const dateOfEndpoint = date.add(24, 'hour').startOf('hour');
 
-      // レスポンスのイメージ
-      // dateOfEndpointのtimeepocで計算して3時間毎に取得するのがいい？(要確認)
-      // response = {
-      //   currentDate: currentDate,
-      //   forecasts: [
-      //     {
-      //       time_epoc: 1696060800,
-      //       time: "2023-09-30 17:00",
-      //       temp_c: 26.6// WIP
-      //     },
-          //{}, ....
-        // ]
-      }
-      return response.data.forecast.forecastday[0].day.avgtemp_c
+    // 24時間以内のhourデータだけをフィルタリング
+    const relevantHours = response.data.forecast.forecastday.flatMap(forecastDay =>
+      forecastDay.hour.filter(hourData =>
+        dayjs.unix(hourData.time_epoch).isBetween(currentDate, dateOfEndpoint)
+      )
+    );
+
+    // 3時間毎のデータだけをフィルタリング
+    const threeHourIntervals = relevantHours.filter((_, index) => index % 3 === 0);
+
+    // フォーマットしたレスポンス
+    const formattedResponse = {
+      currentDate: currentDate,
+      forecasts: threeHourIntervals.map(hourData => ({
+        time: hourData.time,
+        temp_c: hourData.temp_c
+      }))
+    };
+    console.log('=======formattedResponse=======', formattedResponse)
+
+    return formattedResponse;
   } catch (error) {
-      console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
-      throw error;
+    console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
+    throw error;
   }
 }
 
-async function getClothingRecommendation(todayTemperature) {
+async function getClothingRecommendation(temperature) {
   // 服装の目安となるテーブルから該当する服装を取得
   const clothingParams = {
     TableName: "tenki-to-fuku-clothing-recommendation",
@@ -73,8 +80,8 @@ async function getClothingRecommendation(todayTemperature) {
         "#max_temperature": "max_temperature"
     },
     ExpressionAttributeValues: {
-        ":minTemp": { N: String(todayTemperature) },
-        ":maxTemp": { N: String(todayTemperature) }
+        ":minTemp": { N: String(temperature) },
+        ":maxTemp": { N: String(temperature) }
     }
   };
 
@@ -88,9 +95,15 @@ async function getClothingRecommendation(todayTemperature) {
 
     return clothingData.Items[0];
   } catch (error) {
-    console.error(`服装マスターの取得に失敗しました。todayTemperature: ${todayTemperature}`, error);
+    console.error(`服装マスターの取得に失敗しました。temperature: ${temperature}`, error);
     throw error;
   }
+}
+
+function generateResponseMessage(temperature, recommendation) {
+  // const recommendation = await getClothingRecommendation(temperature)
+  // 今日の平均気温、3時間毎の気温と服装、服装の説明を返す
+  return 'xxxxx'
 }
 
 exports.handler = async (event) => {
@@ -102,22 +115,23 @@ exports.handler = async (event) => {
   const body = JSON.parse(event.body).events[0];
 
   const weather_api_params = await fetchCityLongitudeLatitude(body.message.text);
-  const todayTemperature = await fetchWeather(weather_api_params)
-  const recommendation = await getClothingRecommendation(todayTemperature)
+  const forecast = await fetchWeather(weather_api_params)
+  const responseText = generateResponseMessage(forecast)
 
   // LINE MessageAPIへレスポンス
   const response = {
       type: "text",
-      text: `今日の気温は約${todayTemperature}度です。${recommendation.clothing_recommendation.S}がおすすめです。詳細: ${recommendation.description.S}`
+      text: responseText
   };
 
   await lineClient.replyMessage(body.replyToken, response);
 
+  // lambdaのエラーにならないようにレスポンスを返す
   return {
     "isBase64Encoded": false,
     "statusCode": 200,
     "headers": {
-        "Content-Type": "application/json"
+      "Content-Type": "application/json"
     },
     "body": "{\"message\": \"Hello, World!\"}"
   }
