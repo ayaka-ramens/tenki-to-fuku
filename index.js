@@ -1,17 +1,51 @@
+// AWS　Lambda関数アップロード
 // zip function.zip index.js
 // aws lambda update-function-code --function-name tenki-to-fuku --zip-file fileb://function.zip
-const axios = require("axios");
-const dayjs = require('dayjs');
 
-const line = require('@line/bot-sdk');
+const axios = require("axios");
+const dayjs = require("dayjs");
+
+let Kuroshiro = require('kuroshiro').default;
+const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
+
+const line = require("@line/bot-sdk");
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
 const lineClient = new line.Client({channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,});
 
 const AWS = require("aws-sdk");
-AWS.config.update({region: 'ap-northeast-1'});
+AWS.config.update({region: "ap-northeast-1"});
 
 const dynamoDB = new AWS.DynamoDB();
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
+
+function isRomanji(str) {
+  const romaji_regex = /^[A-Za-z\s]+$/;
+  return romaji_regex.test(str);
+}
+
+async function city_name_convert(text) {
+  // 入力値がローマ字の場合は早期リターン
+  if (isRomanji(text)) { return text; }
+  const kuroshiro_kuromoji = new Kuroshiro();
+
+  try {
+    const analyzer = new KuromojiAnalyzer({ dictPath: '/opt/nodejs/node_modules/kuromoji/dict' });
+    console.log('analyzer===', analyzer);
+    await kuroshiro_kuromoji.init(analyzer);
+    console.log('kuroshiro_kuromoji===', kuroshiro_kuromoji);
+  } catch (error) {
+    console.error("===Error initializing kuroshiro:", error);
+  }
+
+  try {
+    const result = await kuroshiro_kuromoji.convert(text, { to: "romaji", romajiSystem: "hepburn" });
+    console.log("=======result: kuroshiro convert=======", result)
+    return result;
+  } catch (error) {
+    console.error(`入力値のローマ字変換に失敗しました text: ${text}`, error);
+    throw error;
+  }
+}
 
 async function fetchCityLongitudeLatitude(city_name) {
   // DynamoDBから経度・緯度を取得
@@ -24,9 +58,10 @@ async function fetchCityLongitudeLatitude(city_name) {
 
   try {
     const result = await dynamoDB.getItem(params).promise();
-    console.log('=======result=======', result)
+    console.log("=======result: dynamoDB getItem=======", result)
     return result.Item.longitude_latitude.S;
   } catch (error) {
+    // 経度緯度テーブルに登録がない場合はcity_nameをリクエストパラメータにする
     console.error(`経度緯度の取得に失敗しました。city_name: ${city_name} をパラメーターとして使います`, error);
     return city_name;
   }
@@ -38,10 +73,10 @@ async function fetchWeather(weather_api_params) {
   // TODO: 3時間毎の気温を取得したい（リクエスト時刻から24時間後まで）
   try {
     const response = await axios.get(url);
-    console.log('=======response=======', response)
+    console.log("=======response: Weather Api get=======", response)
     const currentDate = dayjs();
     // 現在の時刻から24時間後までの天気情報を返す
-    const dateOfEndpoint = date.add(24, 'hour').startOf('hour');
+    const dateOfEndpoint = date.add(24, "hour").startOf("hour");
 
     // 24時間以内のhourデータだけをフィルタリング
     const relevantHours = response.data.forecast.forecastday.flatMap(forecastDay =>
@@ -61,7 +96,7 @@ async function fetchWeather(weather_api_params) {
         temp_c: hourData.temp_c
       }))
     };
-    console.log('=======formattedResponse=======', formattedResponse)
+    console.log("=======formattedResponse=======", formattedResponse)
 
     return formattedResponse;
   } catch (error) {
@@ -87,7 +122,7 @@ async function getClothingRecommendation(temperature) {
 
   try {
     const clothingData = await dynamoDB.scan(clothingParams).promise();
-    console.log('=======clothingData=======', clothingData);
+    console.log("=======clothingData=======", clothingData);
 
     if (clothingData.Items.length === 0) {
       throw new Error("No matching clothing recommendation found.");
@@ -103,7 +138,7 @@ async function getClothingRecommendation(temperature) {
 function generateResponseMessage(temperature, recommendation) {
   // const recommendation = await getClothingRecommendation(temperature)
   // 今日の平均気温、3時間毎の気温と服装、服装の説明を返す
-  return 'xxxxx'
+  return `temperature: ${temperature}, recommendation: ${recommendation}`;
 }
 
 exports.handler = async (event) => {
@@ -114,7 +149,8 @@ exports.handler = async (event) => {
 
   const body = JSON.parse(event.body).events[0];
 
-  const weather_api_params = await fetchCityLongitudeLatitude(body.message.text);
+  const city_name = await city_name_convert(body.message.text);
+  const weather_api_params = await fetchCityLongitudeLatitude(city_name);
   const forecast = await fetchWeather(weather_api_params)
   const responseText = generateResponseMessage(forecast)
 
