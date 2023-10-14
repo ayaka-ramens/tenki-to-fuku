@@ -4,6 +4,8 @@
 
 const axios = require("axios");
 const dayjs = require("dayjs");
+const isBetween = require('dayjs/plugin/isBetween');
+dayjs.extend(isBetween);
 
 let Kuroshiro = require('kuroshiro').default;
 const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
@@ -60,38 +62,38 @@ async function fetchCityLongitudeLatitude(city_name) {
   }
 }
 
+// 天気情報レスポンスを整形して現在の時刻から24時間後まで範囲のみ返す
+async function responseFormat(weather_response) {
+  const currentDate = dayjs();
+  const dateOfEndpoint = currentDate.add(24, "hour").startOf("hour");
+  // 24時間以内のhourデータだけをフィルタリング
+  const relevantHours = weather_response.data.forecast.forecastday.flatMap(forecastDay =>
+    forecastDay.hour.filter(hourData =>
+      dayjs.unix(hourData.time_epoch).isBetween(currentDate, dateOfEndpoint, null, '[]')
+    )
+  );
+  // 3時間毎のデータだけをフィルタリング
+  const threeHourIntervals = relevantHours.filter((_, index) => index % 3 === 0);
+  // フォーマットしたレスポンス
+  const formattedResponse = {
+    currentDate: currentDate,
+    forecasts: threeHourIntervals.map(hourData => ({
+      time: hourData.time,
+      temp_c: hourData.temp_c
+    }))
+  };
+
+  return formattedResponse;
+}
+
 async function fetchWeather(weather_api_params) {
   const url = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${weather_api_params}&lang=ja&hours=24&days=2&aqi=no&alerts=no`;
-  // とりあえず平均気温を取得
-  // TODO: 3時間毎の気温を取得したい（リクエスト時刻から24時間後まで）
+  console.log("=======url: Weather Api get=======", url)
+
   try {
     const response = await axios.get(url);
     console.log("=======response: Weather Api get=======", response)
-    const currentDate = dayjs();
-    // 現在の時刻から24時間後までの天気情報を返す
-    const dateOfEndpoint = date.add(24, "hour").startOf("hour");
-
-    // 24時間以内のhourデータだけをフィルタリング
-    const relevantHours = response.data.forecast.forecastday.flatMap(forecastDay =>
-      forecastDay.hour.filter(hourData =>
-        dayjs.unix(hourData.time_epoch).isBetween(currentDate, dateOfEndpoint)
-      )
-    );
-
-    // 3時間毎のデータだけをフィルタリング
-    const threeHourIntervals = relevantHours.filter((_, index) => index % 3 === 0);
-
-    // フォーマットしたレスポンス
-    const formattedResponse = {
-      currentDate: currentDate,
-      forecasts: threeHourIntervals.map(hourData => ({
-        time: hourData.time,
-        temp_c: hourData.temp_c
-      }))
-    };
-    console.log("=======formattedResponse=======", formattedResponse)
-
-    return formattedResponse;
+    return responseFormat(response)
   } catch (error) {
     console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
     throw error;
