@@ -27,18 +27,11 @@ async function city_name_convert(text) {
   // 入力値がローマ字の場合は早期リターン
   if (isRomanji(text)) { return text; }
   const kuroshiro_kuromoji = new Kuroshiro();
+  const analyzer = new KuromojiAnalyzer({ dictPath: '/opt/nodejs/node_modules/kuromoji/dict' });
+  await kuroshiro_kuromoji.init(analyzer);
 
   try {
-    const analyzer = new KuromojiAnalyzer({ dictPath: '/opt/nodejs/node_modules/kuromoji/dict' });
-    console.log('analyzer===', analyzer);
-    await kuroshiro_kuromoji.init(analyzer);
-    console.log('kuroshiro_kuromoji===', kuroshiro_kuromoji);
-  } catch (error) {
-    console.error("===Error initializing kuroshiro:", error);
-  }
-
-  try {
-    const result = await kuroshiro_kuromoji.convert(text, { to: "romaji", romajiSystem: "hepburn" });
+    const result = await kuroshiro_kuromoji.convert(text, { to: "romaji", romajiSystem: "passport" });
     console.log("=======result: kuroshiro convert=======", result)
     return result;
   } catch (error) {
