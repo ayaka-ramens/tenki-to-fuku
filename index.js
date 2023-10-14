@@ -34,7 +34,7 @@ async function city_name_convert(text) {
 
   try {
     const result = await kuroshiro_kuromoji.convert(text, { to: "romaji", romajiSystem: "passport" });
-    console.log("=======result: kuroshiro convert=======", result)
+    console.log("result: kuroshiro convert:", result)
     return result;
   } catch (error) {
     console.error(`入力値のローマ字変換に失敗しました text: ${text}`, error);
@@ -53,7 +53,7 @@ async function fetchCityLongitudeLatitude(city_name) {
 
   try {
     const result = await dynamoDB.getItem(params).promise();
-    console.log("=======result: dynamoDB getItem=======", result)
+    console.log("result: dynamoDB getItem:", result)
     return result.Item.longitude_latitude.S;
   } catch (error) {
     // 経度緯度テーブルに登録がない場合はcity_nameをリクエストパラメータにする
@@ -62,10 +62,10 @@ async function fetchCityLongitudeLatitude(city_name) {
   }
 }
 
-// 天気情報レスポンスを整形して現在の時刻から24時間後まで範囲のみ返す
+// 天気情報レスポンスを整形して現在の時刻から12時間後まで範囲のみ返す
 async function responseFormat(weather_response) {
   const currentDate = dayjs();
-  const dateOfEndpoint = currentDate.add(24, "hour").startOf("hour");
+  const dateOfEndpoint = currentDate.add(12, "hour").startOf("hour");
   // 24時間以内のhourデータだけをフィルタリング
   const relevantHours = weather_response.data.forecast.forecastday.flatMap(forecastDay =>
     forecastDay.hour.filter(hourData =>
@@ -79,6 +79,7 @@ async function responseFormat(weather_response) {
     currentDate: currentDate,
     forecasts: threeHourIntervals.map(hourData => ({
       time: hourData.time,
+      condition: hourData.condition.text,
       temp_c: hourData.temp_c
     }))
   };
@@ -88,11 +89,11 @@ async function responseFormat(weather_response) {
 
 async function fetchWeather(weather_api_params) {
   const url = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${weather_api_params}&lang=ja&hours=24&days=2&aqi=no&alerts=no`;
-  console.log("=======url: Weather Api get=======", url)
+  console.log("url: Weather Api get:", url)
 
   try {
     const response = await axios.get(url);
-    console.log("=======response: Weather Api get=======", response)
+    console.log("response: Weather Api get:", response)
     return responseFormat(response)
   } catch (error) {
     console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
@@ -117,23 +118,35 @@ async function getClothingRecommendation(temperature) {
 
   try {
     const clothingData = await dynamoDB.scan(clothingParams).promise();
-    console.log("=======clothingData=======", clothingData);
+    console.log("clothingData:", clothingData);
 
     if (clothingData.Items.length === 0) {
-      throw new Error("No matching clothing recommendation found.");
+      throw new Error("服装マスターに該当する服装がありません");
     }
-
-    return clothingData.Items[0];
+    return clothingData.Items[0].clothing_recommendation.S;
   } catch (error) {
     console.error(`服装マスターの取得に失敗しました。temperature: ${temperature}`, error);
     throw error;
   }
 }
 
-function generateResponseMessage(temperature, recommendation) {
-  // const recommendation = await getClothingRecommendation(temperature)
-  // 今日の平均気温、3時間毎の気温と服装、服装の説明を返す
-  return `temperature: ${temperature}, recommendation: ${recommendation}`;
+async function generateResponseMessage(forecast) {
+  console.log("forecast:", forecast);
+  const messages = ["👔今日の天気と服👚"];
+
+  for (const hourData of forecast.forecasts) {
+    const formattedDate = dayjs(hourData.time).format('MM/DD HH:mm');
+    // const recommendation = await getClothingRecommendation(hourData.temp_c);
+    const recommendation = 'hoge';
+    console.log("recommendation:", recommendation)
+    const message = `
+    ${formattedDate}(${hourData.temp_c}°C)
+    ${hourData.condition}
+    ${recommendation}`;
+    messages.push(message);
+  }
+  console.log("messages:", messages)
+  return messages.join("\n");
 }
 
 exports.handler = async (event) => {
@@ -147,7 +160,7 @@ exports.handler = async (event) => {
   const city_name = await city_name_convert(body.message.text);
   const weather_api_params = await fetchCityLongitudeLatitude(city_name);
   const forecast = await fetchWeather(weather_api_params)
-  const responseText = generateResponseMessage(forecast)
+  const responseText = await generateResponseMessage(forecast)
 
   // LINE MessageAPIへレスポンス
   const response = {
