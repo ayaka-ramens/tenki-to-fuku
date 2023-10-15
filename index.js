@@ -25,7 +25,17 @@ function isRomanji(str) {
   return romaji_regex.test(str);
 }
 
+function containsInvalidCharacters(text) {
+  // 絵文字・記号を検出
+  const invalidCharactersRegex = /[\uD800-\uDFFF\u2000-\u2FFF\u0020-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\u3000-\u303F\uFF01-\uFF60\uFF61-\uFF9F]+/g;
+  return invalidCharactersRegex.test(text);
+}
+
 async function city_name_convert(text) {
+  if (containsInvalidCharacters(text)) {
+    throw new Error(`入力値に絵文字や記号が含めないでください\ntext: ${text}`);
+  }
+
   // 入力値がローマ字の場合は早期リターン
   if (isRomanji(text)) { return text; }
   const kuroshiro_kuromoji = new Kuroshiro();
@@ -38,7 +48,7 @@ async function city_name_convert(text) {
     return result;
   } catch (error) {
     console.error(`入力値のローマ字変換に失敗しました text: ${text}`, error);
-    throw new Error(`ローマ字入力をお試し下さい\ntext: ${text}`);
+    throw new Error(`ローマ字変換失敗\nローマ字入力をお試し下さい\ntext: ${text}`);
   }
 }
 
