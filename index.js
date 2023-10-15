@@ -9,6 +9,7 @@ dayjs.extend(isBetween);
 
 let Kuroshiro = require('kuroshiro').default;
 const KuromojiAnalyzer = require("kuroshiro-analyzer-kuromoji");
+let kuroshiroKuromojiCache = null;
 
 const line = require("@line/bot-sdk");
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
@@ -31,6 +32,20 @@ function containsInvalidCharacters(text) {
   return invalidCharactersRegex.test(text);
 }
 
+async function initializeKuroshiroKuromoji() {
+  if (!kuroshiroKuromojiCache) {
+    kuroshiroKuromojiCache = new Kuroshiro();
+    const analyzer = await initializeKuromojiAnalyzer(); // KuromojiAnalyzerの初期化
+    await kuroshiroKuromojiCache.init(analyzer);
+  }
+  return kuroshiroKuromojiCache;
+}
+
+async function initializeKuromojiAnalyzer() {
+  const analyzer = new KuromojiAnalyzer({ dictPath: '/opt/nodejs/node_modules/kuromoji/dict' });
+  return analyzer;
+}
+
 async function city_name_convert(text) {
   if (containsInvalidCharacters(text)) {
     throw new Error(`入力値に絵文字や記号が含めないでください\ntext: ${text}`);
@@ -38,9 +53,8 @@ async function city_name_convert(text) {
 
   // 入力値がローマ字の場合は早期リターン
   if (isRomanji(text)) { return text; }
-  const kuroshiro_kuromoji = new Kuroshiro();
-  const analyzer = new KuromojiAnalyzer({ dictPath: '/opt/nodejs/node_modules/kuromoji/dict' });
-  await kuroshiro_kuromoji.init(analyzer);
+
+  const kuroshiro_kuromoji = await initializeKuroshiroKuromoji();
 
   try {
     const result = await kuroshiro_kuromoji.convert(text, { to: "romaji", romajiSystem: "passport" });
@@ -128,7 +142,6 @@ async function getClothingRecommendation(temperature) {
 
   try {
     const clothingData = await dynamoDB.scan(clothingParams).promise();
-    console.log("clothingData:", clothingData);
 
     if (clothingData.Items.length === 0) {
       throw new Error("服装マスターなし");
@@ -141,13 +154,11 @@ async function getClothingRecommendation(temperature) {
 }
 
 async function generateResponseMessage(forecast) {
-  console.log("forecast:", forecast);
   const messages = ["☀️今日の天気と服☁️"];
 
   for (const hourData of forecast.forecasts) {
     const formattedDate = dayjs(hourData.time).format('MM/DD HH:mm');
     const recommendation = await getClothingRecommendation(hourData.temp_c);
-    console.log("recommendation:", recommendation)
     const message = `
   ${formattedDate}(${hourData.temp_c}°C)
   ${hourData.condition}
