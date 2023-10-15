@@ -38,7 +38,7 @@ async function city_name_convert(text) {
     return result;
   } catch (error) {
     console.error(`入力値のローマ字変換に失敗しました text: ${text}`, error);
-    throw error;
+    throw new Error(`ローマ字入力をお試し下さい\ntext: ${text}`);
   }
 }
 
@@ -96,8 +96,8 @@ async function fetchWeather(weather_api_params) {
     console.log("response: Weather Api get:", response)
     return responseFormat(response)
   } catch (error) {
-    console.error(`WeatherAPIのリクエストに失敗しました。weather_api_params: ${weather_api_params}`, error);
-    throw error;
+    console.error(`WeatherAPIのリクエストに失敗しました。入力値: ${weather_api_params}`, error);
+    throw new Error(`天気情報の取得\n入力された内容をご確認下さい\ntext: ${weather_api_params}`);
   }
 }
 
@@ -121,62 +121,84 @@ async function getClothingRecommendation(temperature) {
     console.log("clothingData:", clothingData);
 
     if (clothingData.Items.length === 0) {
-      throw new Error("服装マスターに該当する服装がありません");
+      throw new Error("服装マスターなし");
     }
     return clothingData.Items[0].clothing_recommendation.S;
   } catch (error) {
     console.error(`服装マスターの取得に失敗しました。temperature: ${temperature}`, error);
-    throw error;
+    throw new Error("服装マスター取得失敗");
   }
 }
 
 async function generateResponseMessage(forecast) {
   console.log("forecast:", forecast);
-  const messages = ["👔今日の天気と服👚"];
+  const messages = ["☀️今日の天気と服☁️"];
 
   for (const hourData of forecast.forecasts) {
     const formattedDate = dayjs(hourData.time).format('MM/DD HH:mm');
-    // const recommendation = await getClothingRecommendation(hourData.temp_c);
-    const recommendation = 'hoge';
+    const recommendation = await getClothingRecommendation(hourData.temp_c);
     console.log("recommendation:", recommendation)
     const message = `
-    ${formattedDate}(${hourData.temp_c}°C)
-    ${hourData.condition}
-    ${recommendation}`;
+  ${formattedDate}(${hourData.temp_c}°C)
+  ${hourData.condition}
+  👚${recommendation}👔`;
     messages.push(message);
   }
-  console.log("messages:", messages)
   return messages.join("\n");
+}
+
+async function handleErrorMessage(lineReplyToken, errorMessage) {
+  const response = {
+    type: "text",
+    text: errorMessage
+  };
+
+  await lineClient.replyMessage(lineReplyToken, response);
 }
 
 exports.handler = async (event) => {
   // LINEからの接続であるか確認
   const signature = event.headers["x-line-signature"];
-  const bool = line.validateSignature(event.body, LINE_CHANNEL_SECRET, signature);
-  if (!bool) throw new Error("invalid signature");
-
   const body = JSON.parse(event.body).events[0];
+  const lineReplyToken = body.replyToken;
 
-  const city_name = await city_name_convert(body.message.text);
-  const weather_api_params = await fetchCityLongitudeLatitude(city_name);
-  const forecast = await fetchWeather(weather_api_params)
-  const responseText = await generateResponseMessage(forecast)
+  const bool = line.validateSignature(event.body, LINE_CHANNEL_SECRET, signature);
+  if (!bool) {
+    await handleErrorMessage(lineReplyToken, "LINEからの接続であるか確認して下さい");
+    throw new Error("Invalid signature");
+  }
 
-  // LINE MessageAPIへレスポンス
-  const response = {
-      type: "text",
-      text: responseText
-  };
+  try {
+    const city_name = await city_name_convert(body.message.text);
+    const weather_api_params = await fetchCityLongitudeLatitude(city_name);
+    const forecast = await fetchWeather(weather_api_params)
+    const responseText = await generateResponseMessage(forecast)
 
-  await lineClient.replyMessage(body.replyToken, response);
+    const response = {
+        type: "text",
+        text: responseText
+    };
 
-  // lambdaのエラーにならないようにレスポンスを返す
-  return {
-    "isBase64Encoded": false,
-    "statusCode": 200,
-    "headers": {
-      "Content-Type": "application/json"
-    },
-    "body": "{\"message\": \"Hello, World!\"}"
+    await lineClient.replyMessage(lineReplyToken, response);
+
+    return {
+      "isBase64Encoded": false,
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"message\": \"Success\"}"
+    }
+  } catch (error) {
+    await handleErrorMessage(lineReplyToken, "エラー： " + error.message);
+
+    return {
+      "isBase64Encoded": false,
+      "statusCode": 500,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"error\": \"" + error.message + "\"}"
+    }
   }
 };
