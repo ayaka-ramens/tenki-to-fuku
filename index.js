@@ -21,15 +21,15 @@ AWS.config.update({region: "ap-northeast-1"});
 const dynamoDB = new AWS.DynamoDB();
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 
-function isRomanji(str) {
-  const romaji_regex = /^[A-Za-z\s]+$/;
-  return romaji_regex.test(str);
-}
-
 function containsInvalidCharacters(text) {
   // 絵文字・記号を検出
   const invalidCharactersRegex = /[\uD800-\uDFFF\u2000-\u2FFF\u0020-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\u3000-\u303F\uFF01-\uFF60\uFF61-\uFF9F]+/g;
   return invalidCharactersRegex.test(text);
+}
+
+function isRomanji(str) {
+  const romaji_regex = /^[A-Za-z\s]+$/;
+  return romaji_regex.test(str);
 }
 
 async function initializeKuroshiroKuromoji() {
