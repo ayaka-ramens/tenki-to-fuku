@@ -21,6 +21,8 @@ AWS.config.update({region: "ap-northeast-1"});
 const dynamoDB = new AWS.DynamoDB();
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 
+const HELP_TEXTS = ["help", "HELP", "ヘルプ", "使い方"];
+
 function containsInvalidCharacters(text) {
   // 絵文字・記号を検出
   const invalidCharactersRegex = /[\uD800-\uDFFF\u2000-\u2FFF\u0020-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\u3000-\u303F\uFF01-\uFF60\uFF61-\uFF9F]+/g;
@@ -35,7 +37,7 @@ function isRomanji(str) {
 async function initializeKuroshiroKuromoji() {
   if (!kuroshiroKuromojiCache) {
     kuroshiroKuromojiCache = new Kuroshiro();
-    const analyzer = await initializeKuromojiAnalyzer(); // KuromojiAnalyzerの初期化
+    const analyzer = await initializeKuromojiAnalyzer();
     await kuroshiroKuromojiCache.init(analyzer);
   }
   return kuroshiroKuromojiCache;
@@ -98,7 +100,7 @@ async function responseFormat(weather_response) {
   );
   // 3時間毎のデータだけをフィルタリング
   const threeHourIntervals = relevantHours.filter((_, index) => index % 3 === 0);
-  // フォーマットしたレスポンス
+
   const formattedResponse = {
     currentDate: currentDate,
     forecasts: threeHourIntervals.map(hourData => ({
@@ -190,10 +192,16 @@ exports.handler = async (event) => {
   }
 
   try {
-    const city_name = await city_name_convert(body.message.text);
-    const weather_api_params = await fetchCityLongitudeLatitude(city_name);
-    const forecast = await fetchWeather(weather_api_params)
-    const responseText = await generateResponseMessage(forecast)
+    let responseText = "";
+
+    if (HELP_TEXTS.includes(body.message.text)) {
+      responseText = "☀️使い方☁️\n市・区名を入力してください\n例: shibuya,kamakura,matsumoto"
+    } else {
+      const city_name = await city_name_convert(body.message.text);
+      const weather_api_params = await fetchCityLongitudeLatitude(city_name);
+      const forecast = await fetchWeather(weather_api_params);
+      responseText = await generateResponseMessage(forecast);
+    }
 
     const response = {
         type: "text",
