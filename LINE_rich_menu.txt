@@ -1,0 +1,119 @@
+curl -v -X POST https://api.line.me/v2/bot/richmenu \
+-H 'Authorization: Bearer {channel access token}' \
+-H 'Content-Type: application/json' \
+-d \
+'{
+    "size": {
+        "width": 2500,
+        "height": 1686
+    },
+    "selected": true,
+    "name": "デフォルトのリッチメニュー",
+    "chatBarText": "メニューから地域を選ぶ",
+    "areas": [
+        {
+            "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1666,
+                "height": 1686
+            },
+            "action": {
+                "type": "text",
+                "label": "北海道",
+                "uri": "https://developers.line.biz/ja/news/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 0,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "東北",
+                "uri": "https://www.line-community.me/ja/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 844,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "関東",
+                "uri": "https://techblog.lycorp.co.jp/ja/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 844,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "中部",
+                "uri": "https://techblog.lycorp.co.jp/ja/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 844,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "近畿",
+                "uri": "https://techblog.lycorp.co.jp/ja/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 844,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "中国四国",
+                "uri": "https://techblog.lycorp.co.jp/ja/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 844,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "九州",
+                "uri": "https://techblog.lycorp.co.jp/ja/"
+            }
+        },
+        {
+            "bounds": {
+                "x": 1667,
+                "y": 844,
+                "width": 834,
+                "height": 843
+            },
+            "action": {
+                "type": "text",
+                "label": "豆知識",
+                "uri": "https://techblog.lycorp.co.jp/ja/"
+            }
+        }
+    ]
+}'
