@@ -1,5 +1,5 @@
 # 天気と服
-天気情報から服装のアドバイスをするLINE Botです
+天気情報と服装の目安を返すLINE Botです
 
 # 使い方
 QRコードを読み取って友達追加して下さい
@@ -11,10 +11,10 @@ QRコードを読み取って友達追加して下さい
 <img width="300" alt="line_pic2" src="https://github.com/ayaka-ramens/tenki-to-fuku/assets/52645663/b740dfb6-6c14-4c44-8904-a745526353cd">
 
 # 技術構成
-- LINE Messaging API
+- [LINE Messaging API](https://developers.line.biz/ja/services/messaging-api/)
 - Amazon API Gateway
 - AWS Lambda
 - Amazon DynamoDB
-- Weather api
+- [Weather API](https://www.weatherapi.com/)
 
 ![transition_diagram](/doc/transition_diagram.jpg)
