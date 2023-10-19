@@ -194,13 +194,19 @@ exports.handler = async (event) => {
   try {
     let responseText = "";
 
-    if (HELP_TEXTS.includes(body.message.text)) {
-      responseText = "☀️使い方☁️\n市・区名を入力してください\n例: shibuya,kamakura,matsumoto"
+    if (body.type == "message") {
+      if (HELP_TEXTS.includes(body.message.text)) {
+        responseText = "☀️使い方☁️\n市・区名を入力してください\n例: shibuya,kamakura,matsumoto"
+      } else {
+        const city_name = await city_name_convert(body.message.text);
+        const weather_api_params = await fetchCityLongitudeLatitude(city_name);
+        const forecast = await fetchWeather(weather_api_params);
+        responseText = await generateResponseMessage(forecast);
+      }
+    } else if (body.type === "follow") {
+      responseText = "はじめまして😆\n3時間ごとの天気と服装の目安を返します。市区名を入力してください。\n例: shibuya,kamakura,matsumoto";
     } else {
-      const city_name = await city_name_convert(body.message.text);
-      const weather_api_params = await fetchCityLongitudeLatitude(city_name);
-      const forecast = await fetchWeather(weather_api_params);
-      responseText = await generateResponseMessage(forecast);
+      responseText = "エラー： 未対応のイベントタイプです"
     }
 
     const response = {
