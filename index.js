@@ -131,11 +131,10 @@ async function getClothingRecommendation(temperature) {
   // 服装の目安となるテーブルから該当する服装を取得
   const clothingParams = {
     TableName: "tenki-to-fuku-clothing-recommendation",
-    FilterExpression: "(attribute_not_exists(#max_temperature) OR :minTemp <= #max_temperature) AND (attribute_not_exists(#min_temperature) OR :maxTemp >= #min_temperature)",
-    ExpressionAttributeNames: {
-        "#min_temperature": "min_temperature",
-        "#max_temperature": "max_temperature"
-    },
+    FilterExpression: `
+      (attribute_not_exists(max_temperature) OR :minTemp <= max_temperature) AND
+      (attribute_not_exists(min_temperature) OR :maxTemp >= min_temperature)
+    `,
     ExpressionAttributeValues: {
         ":minTemp": { N: String(temperature) },
         ":maxTemp": { N: String(temperature) }
